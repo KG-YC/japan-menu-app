@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>旅遊點餐助手 🍣</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { -webkit-tap-highlight-color: transparent; }
+    .fade-in { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen select-none">
+
+<!-- ===== 設定 Modal ===== -->
+<div id="settingsModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-end">
+  <div class="bg-slate-800 w-full rounded-t-2xl p-5 space-y-4 max-w-lg mx-auto">
+    <div class="flex justify-between items-center">
+      <h2 class="text-lg font-bold">⚙️ 設定</h2>
+      <button onclick="closeSettings()" class="text-slate-400 text-2xl leading-none">×</button>
+    </div>
+    <div>
+      <label class="text-xs text-slate-400 uppercase tracking-wide">Gemini API Key（必填）</label>
+      <input id="apiKeyInput" type="password" placeholder="AIzaSy..."
+        class="w-full mt-1.5 bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500">
+      <p class="text-xs text-slate-500 mt-1">從 aistudio.google.com 免費取得</p>
+    </div>
+    <div>
+      <label class="text-xs text-slate-400 uppercase tracking-wide">Apps Script URL（選填，記帳用）</label>
+      <input id="scriptUrlInput" type="url" placeholder="https://script.google.com/macros/s/..."
+        class="w-full mt-1.5 bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500">
+      <p class="text-xs text-slate-500 mt-1">參考 apps-script.js 設定 Google 試算表記帳</p>
+    </div>
+    <button onclick="saveSettings()"
+      class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl py-3 font-semibold">
+      儲存設定
+    </button>
+  </div>
+</div>
+
+<!-- ===== 給店員看 Modal ===== -->
+<div id="waiterModal" class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+  <div class="bg-white text-gray-900 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl">
+    <div class="bg-red-600 text-white px-6 py-4 text-center">
+      <p class="text-xs opacity-80 mb-1">ご注文をお願いします</p>
+      <h2 class="text-xl font-bold" id="waiterRestaurantName"></h2>
+    </div>
+    <div class="px-6 py-4 space-y-1 max-h-72 overflow-y-auto" id="waiterContent"></div>
+    <div class="px-6 py-3 border-t border-gray-200">
+      <div class="flex justify-between items-center font-bold text-lg">
+        <span>合計</span>
+        <span id="waiterTotal" class="text-red-600">¥0</span>
+      </div>
+    </div>
+    <div class="px-6 pb-5 pt-2">
+      <button onclick="closeWaiterModal()"
+        class="w-full bg-gray-900 text-white rounded-xl py-3 font-semibold">
+        閉じる（關閉）
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 換餐廳確認 Modal ===== -->
+<div id="newRestaurantModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-end">
+  <div class="bg-slate-800 w-full rounded-t-2xl p-5 space-y-4 max-w-lg mx-auto">
+    <h2 class="text-lg font-bold">🔄 換新的餐廳</h2>
+    <p class="text-sm text-slate-400">目前的菜單將會清除，請輸入新餐廳名稱（可留空）</p>
+    <input id="newRestaurantName" type="text" placeholder="例：壽司郎 梅田店（留空自動編號）"
+      class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500">
+    <div class="flex gap-3">
+      <button onclick="closeNewRestaurantModal()"
+        class="flex-1 bg-slate-700 hover:bg-slate-600 rounded-xl py-3 text-sm font-medium">
+        取消
+      </button>
+      <button onclick="confirmNewRestaurant()"
+        class="flex-1 bg-orange-500 hover:bg-orange-600 rounded-xl py-3 text-sm font-semibold">
+        確認換餐廳
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Header ===== -->
+<div class="sticky top-0 bg-slate-900/95 backdrop-blur border-b border-slate-800 z-40">
+  <div class="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
+    <div>
+      <h1 class="text-base font-bold">🍣 點餐助手</h1>
+      <p class="text-xs text-slate-400" id="restaurantLabel">第 1 間餐廳</p>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="openNewRestaurantModal()"
+        class="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs px-3 py-1.5 rounded-lg font-medium">
+        換餐廳 🔄
+      </button>
+      <button onclick="openSettings()"
+        class="bg-slate-800 text-slate-400 text-xs px-3 py-1.5 rounded-lg">
+        ⚙️
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 主要內容 ===== -->
+<div class="max-w-lg mx-auto px-4 pt-4 pb-36 space-y-4">
+
+  <!-- 拍照區 -->
+  <div class="bg-slate-800 rounded-2xl p-4 space-y-3">
+    <div class="flex items-center justify-between">
+      <h2 class="font-semibold text-sm">📷 菜單照片</h2>
+      <span class="text-xs text-slate-500" id="photoCount">尚未選擇</span>
+    </div>
+
+    <label for="photoInput"
+      class="flex flex-col items-center justify-center border-2 border-dashed border-slate-600 rounded-xl py-5 cursor-pointer active:bg-slate-700 transition">
+      <span class="text-3xl">📸</span>
+      <span class="text-sm text-slate-300 mt-2 font-medium">拍照或選擇圖片</span>
+      <span class="text-xs text-slate-500 mt-0.5">支援多張（多頁菜單）</span>
+    </label>
+    <input id="photoInput" type="file" accept="image/*" multiple class="hidden" onchange="handlePhotos(event)">
+
+    <!-- 預覽縮圖 -->
+    <div id="photoPreviews" class="flex gap-2 flex-wrap"></div>
+
+    <button id="translateBtn" onclick="translateMenu()" disabled
+      class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-slate-700 disabled:text-slate-500 rounded-xl py-3 font-semibold text-sm transition">
+      🔍 翻譯菜單
+    </button>
+  </div>
+
+  <!-- 載入中 -->
+  <div id="loadingDiv" class="hidden text-center py-10 space-y-3 fade-in">
+    <div class="text-4xl spin inline-block">⏳</div>
+    <p class="text-slate-400 text-sm">Gemini 正在辨識菜單...</p>
+    <p class="text-slate-600 text-xs">需要 5-15 秒，請稍候</p>
+  </div>
+
+  <!-- 翻譯錯誤 -->
+  <div id="errorDiv" class="hidden bg-red-900/30 border border-red-800 rounded-2xl p-4 fade-in">
+    <p class="text-red-400 text-sm font-medium">❌ 翻譯失敗</p>
+    <p class="text-red-300 text-xs mt-1" id="errorMsg"></p>
+    <button onclick="translateMenu()" class="mt-3 text-xs text-red-400 underline">重試</button>
+  </div>
+
+  <!-- 菜單列表 -->
+  <div id="menuSection" class="hidden space-y-3 fade-in">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="font-semibold text-sm">🍽️ 菜單</h2>
+        <p class="text-xs text-slate-500 mt-0.5" id="itemCountLabel"></p>
+      </div>
+      <div class="flex gap-3 text-xs">
+        <button onclick="selectAll()" class="text-blue-400 active:text-blue-300">全選</button>
+        <span class="text-slate-700">|</span>
+        <button onclick="selectNone()" class="text-slate-400 active:text-slate-300">清除</button>
+      </div>
+    </div>
+
+    <!-- 手動新增 -->
+    <div id="addManualRow" class="hidden flex gap-2">
+      <input id="manualJa" type="text" placeholder="日文菜名" class="flex-1 bg-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+      <input id="manualZh" type="text" placeholder="中文" class="flex-1 bg-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+      <input id="manualPrice" type="number" placeholder="¥" class="w-20 bg-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+      <button onclick="addManualItem()" class="bg-blue-600 rounded-lg px-3 py-2 text-sm font-medium">新增</button>
+    </div>
+
+    <div id="menuItems" class="space-y-2"></div>
+
+    <button onclick="toggleManualAdd()"
+      class="w-full border border-dashed border-slate-600 text-slate-500 text-xs py-2.5 rounded-xl active:bg-slate-800">
+      + 手動新增（菜單遺漏的品項）
+    </button>
+  </div>
+
+</div>
+
+<!-- ===== 底部 Action Bar ===== -->
+<div id="actionBar" class="hidden fixed bottom-0 left-0 right-0 z-40">
+  <div class="max-w-lg mx-auto bg-slate-800 border-t border-slate-700 px-4 py-3 shadow-xl">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-xs text-slate-400">已選 <span id="selectedCount" class="text-white font-medium">0</span> 項</p>
+        <p class="text-2xl font-bold">¥<span id="totalPrice">0</span></p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="showWaiterModal()"
+          class="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-lg">
+          🇯🇵 給店員看
+        </button>
+        <button onclick="saveToSheets()"
+          class="bg-slate-600 hover:bg-slate-500 active:bg-slate-400 text-white px-4 py-2.5 rounded-xl text-sm font-semibold">
+          📊 記帳
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Toast ===== -->
+<div id="toast"
+  class="hidden fixed top-20 left-1/2 -translate-x-1/2 bg-slate-700 text-white text-sm px-4 py-2.5 rounded-xl shadow-xl z-50 whitespace-nowrap">
+</div>
+
+<script>
+// ==================== State ====================
+const state = {
+  restaurantNum: parseInt(localStorage.getItem('restaurantNum') || '1'),
+  restaurantName: localStorage.getItem('restaurantName') || '',
+  photos: [],      // [{data: base64, mime: string, preview: url}]
+  menuItems: [],   // [{id, ja, zh, price, quantity, selected}]
+  apiKey: localStorage.getItem('geminiApiKey') || '',
+  scriptUrl: localStorage.getItem('appsScriptUrl') || '',
+  nextId: 0,
+};
+
+// ==================== Init ====================
+function init() {
+  updateRestaurantLabel();
+  if (!state.apiKey) {
+    setTimeout(() => document.getElementById('settingsModal').classList.remove('hidden'), 600);
+  }
+}
+
+// ==================== Settings ====================
+function openSettings() {
+  document.getElementById('apiKeyInput').value = state.apiKey;
+  document.getElementById('scriptUrlInput').value = state.scriptUrl;
+  document.getElementById('settingsModal').classList.remove('hidden');
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.add('hidden');
+}
+
+function saveSettings() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  const url = document.getElementById('scriptUrlInput').value.trim();
+  if (!key) { showToast('請輸入 Gemini API Key ⚠️'); return; }
+  state.apiKey = key;
+  state.scriptUrl = url;
+  localStorage.setItem('geminiApiKey', key);
+  localStorage.setItem('appsScriptUrl', url);
+  closeSettings();
+  showToast('設定已儲存 ✅');
+}
+
+// ==================== Restaurant ====================
+function updateRestaurantLabel() {
+  const label = state.restaurantName || `第 ${state.restaurantNum} 間餐廳`;
+  document.getElementById('restaurantLabel').textContent = label;
+}
+
+function openNewRestaurantModal() {
+  document.getElementById('newRestaurantName').value = '';
+  document.getElementById('newRestaurantModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('newRestaurantName').focus(), 100);
+}
+
+function closeNewRestaurantModal() {
+  document.getElementById('newRestaurantModal').classList.add('hidden');
+}
+
+function confirmNewRestaurant() {
+  const name = document.getElementById('newRestaurantName').value.trim();
+  state.restaurantNum++;
+  state.restaurantName = name;
+  localStorage.setItem('restaurantNum', state.restaurantNum);
+  localStorage.setItem('restaurantName', name);
+  clearSession();
+  closeNewRestaurantModal();
+  updateRestaurantLabel();
+  showToast(`✅ 已切換到 ${name || '第 ' + state.restaurantNum + ' 間餐廳'}`);
+}
+
+function clearSession() {
+  state.photos = [];
+  state.menuItems = [];
+  state.nextId = 0;
+  document.getElementById('photoPreviews').innerHTML = '';
+  document.getElementById('photoCount').textContent = '尚未選擇';
+  document.getElementById('translateBtn').disabled = true;
+  document.getElementById('photoInput').value = '';
+  document.getElementById('menuSection').classList.add('hidden');
+  document.getElementById('actionBar').classList.add('hidden');
+  document.getElementById('loadingDiv').classList.add('hidden');
+  document.getElementById('errorDiv').classList.add('hidden');
+  document.getElementById('addManualRow').classList.add('hidden');
+}
+
+// ==================== Photos ====================
+function handlePhotos(event) {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+
+  state.photos = [];
+  document.getElementById('photoPreviews').innerHTML = '';
+
+  let loaded = 0;
+  files.forEach((file, index) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      state.photos[index] = {
+        data: e.target.result.split(',')[1],
+        mime: file.type || 'image/jpeg',
+        preview: e.target.result
+      };
+      loaded++;
+
+      // 縮圖
+      const thumb = document.createElement('div');
+      thumb.className = 'relative flex-shrink-0';
+      thumb.innerHTML = `
+        <img src="${e.target.result}" class="w-16 h-16 object-cover rounded-lg border border-slate-600">
+        <span class="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">${index + 1}</span>
+      `;
+      document.getElementById('photoPreviews').appendChild(thumb);
+
+      if (loaded === files.length) {
+        document.getElementById('photoCount').textContent = `${files.length} 張`;
+        document.getElementById('translateBtn').disabled = false;
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ==================== Gemini API ====================
+async function translateMenu() {
+  if (!state.apiKey) { openSettings(); showToast('請先設定 API Key ⚠️'); return; }
+  if (!state.photos.length) { showToast('請先選擇菜單照片 ⚠️'); return; }
+
+  document.getElementById('loadingDiv').classList.remove('hidden');
+  document.getElementById('menuSection').classList.add('hidden');
+  document.getElementById('errorDiv').classList.add('hidden');
+  document.getElementById('actionBar').classList.add('hidden');
+  document.getElementById('translateBtn').disabled = true;
+
+  try {
+    const parts = [
+      {
+        text: `你是專業日文菜單翻譯助手。請仔細辨識所有菜單圖片的菜色和價格。
+
+輸出純 JSON 陣列，格式如下（不要包含 markdown 符號或說明文字）：
+[
+  {"ja": "唐揚げ定食", "zh": "炸雞塊定食", "price": 880},
+  {"ja": "生ビール", "zh": "生啤酒", "price": 550}
+]
+
+注意事項：
+- 只輸出 JSON，不要加任何說明
+- 若看不清楚價格，price 填 0
+- 包含所有可點品項：正餐、副餐、飲料、甜點、小菜
+- 套餐保留完整名稱（不拆開）
+- 若有多張圖片，合併成同一個陣列（去除重複品項）`
+      },
+      ...state.photos.map(p => ({
+        inline_data: { mime_type: p.mime, data: p.data }
+      }))
+    ];
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${state.apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 4096 }
+        })
+      }
+    );
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error?.message || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    // 清理 JSON
+    text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+
+    // 找到 JSON 陣列（有時 Gemini 會加前綴文字）
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('無法解析 Gemini 回傳的格式');
+
+    const parsed = JSON.parse(match[0]);
+    if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('菜單辨識結果為空');
+
+    state.menuItems = parsed.map(item => ({
+      id: state.nextId++,
+      ja: item.ja || '',
+      zh: item.zh || '',
+      price: parseInt(item.price) || 0,
+      quantity: 1,
+      selected: false
+    }));
+
+    renderMenu();
+    showToast(`找到 ${state.menuItems.length} 個品項 ✅`);
+
+  } catch (err) {
+    console.error(err);
+    document.getElementById('errorMsg').textContent = err.message;
+    document.getElementById('errorDiv').classList.remove('hidden');
+    showToast('翻譯失敗 ❌');
+  } finally {
+    document.getElementById('loadingDiv').classList.add('hidden');
+    document.getElementById('translateBtn').disabled = false;
+  }
+}
+
+// ==================== Menu Rendering ====================
+function renderMenu() {
+  if (!state.menuItems.length) return;
+
+  document.getElementById('menuSection').classList.remove('hidden');
+  document.getElementById('itemCountLabel').textContent =
+    `共 ${state.menuItems.length} 項，點選後加入訂單`;
+
+  const container = document.getElementById('menuItems');
+  container.innerHTML = '';
+
+  state.menuItems.forEach(item => {
+    const card = document.createElement('div');
+    card.id = `card-${item.id}`;
+    card.className = `rounded-xl border-2 transition-all p-3 ${
+      item.selected
+        ? 'bg-blue-900/30 border-blue-600'
+        : 'bg-slate-800 border-slate-700'
+    }`;
+
+    card.innerHTML = `
+      <div class="flex items-center gap-3">
+        <!-- Checkbox -->
+        <div onclick="toggleItem(${item.id})"
+          class="flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all ${
+            item.selected ? 'bg-blue-600 border-blue-600' : 'border-slate-500'
+          }">
+          ${item.selected ? '<span class="text-white text-xs font-bold">✓</span>' : ''}
+        </div>
+
+        <!-- 菜名 -->
+        <div class="flex-1 min-w-0 cursor-pointer" onclick="toggleItem(${item.id})">
+          <p class="text-sm font-medium leading-tight">${escHtml(item.zh)}</p>
+          <p class="text-xs text-slate-400 mt-0.5 truncate">${escHtml(item.ja)}</p>
+          <p class="text-sm font-bold mt-1 ${item.price > 0 ? 'text-blue-400' : 'text-slate-500'}">
+            ${item.price > 0 ? '¥' + item.price.toLocaleString() : '價格未知'}
+          </p>
+        </div>
+
+        <!-- 數量控制 -->
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+          <button onclick="changeQty(${item.id}, -1)"
+            class="w-7 h-7 rounded-full bg-slate-700 active:bg-slate-600 flex items-center justify-center text-sm font-bold text-slate-300">−</button>
+          <span class="w-5 text-center text-sm font-semibold">${item.quantity}</span>
+          <button onclick="changeQty(${item.id}, 1)"
+            class="w-7 h-7 rounded-full bg-slate-700 active:bg-slate-600 flex items-center justify-center text-sm font-bold text-slate-300">＋</button>
+          <button onclick="removeItem(${item.id})"
+            class="w-7 h-7 rounded-full bg-red-900/40 active:bg-red-900 flex items-center justify-center text-xs text-red-400 ml-1">✕</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  updateTotal();
+}
+
+function toggleItem(id) {
+  const item = state.menuItems.find(i => i.id === id);
+  if (item) { item.selected = !item.selected; renderMenu(); }
+}
+
+function changeQty(id, delta) {
+  const item = state.menuItems.find(i => i.id === id);
+  if (!item) return;
+  item.quantity = Math.max(1, item.quantity + delta);
+  if (delta > 0 && !item.selected) item.selected = true;
+  renderMenu();
+}
+
+function removeItem(id) {
+  state.menuItems = state.menuItems.filter(i => i.id !== id);
+  if (state.menuItems.length === 0) {
+    document.getElementById('menuSection').classList.add('hidden');
+    document.getElementById('actionBar').classList.add('hidden');
+  } else {
+    renderMenu();
+  }
+}
+
+function selectAll() {
+  state.menuItems.forEach(i => i.selected = true);
+  renderMenu();
+}
+
+function selectNone() {
+  state.menuItems.forEach(i => { i.selected = false; i.quantity = 1; });
+  renderMenu();
+}
+
+function updateTotal() {
+  const selected = state.menuItems.filter(i => i.selected);
+  const total = selected.reduce((s, i) => s + i.price * i.quantity, 0);
+  document.getElementById('selectedCount').textContent = selected.length;
+  document.getElementById('totalPrice').textContent = total.toLocaleString();
+  document.getElementById('actionBar').classList.toggle('hidden', state.menuItems.length === 0);
+}
+
+// ==================== 手動新增 ====================
+function toggleManualAdd() {
+  const row = document.getElementById('addManualRow');
+  row.classList.toggle('hidden');
+  if (!row.classList.contains('hidden')) {
+    document.getElementById('manualZh').focus();
+  }
+}
+
+function addManualItem() {
+  const ja = document.getElementById('manualJa').value.trim();
+  const zh = document.getElementById('manualZh').value.trim();
+  const price = parseInt(document.getElementById('manualPrice').value) || 0;
+  if (!zh && !ja) { showToast('至少輸入中文或日文菜名 ⚠️'); return; }
+
+  state.menuItems.push({ id: state.nextId++, ja: ja || zh, zh: zh || ja, price, quantity: 1, selected: true });
+  document.getElementById('manualJa').value = '';
+  document.getElementById('manualZh').value = '';
+  document.getElementById('manualPrice').value = '';
+  document.getElementById('addManualRow').classList.add('hidden');
+  renderMenu();
+  showToast('已新增品項 ✅');
+}
+
+// ==================== 給店員看 ====================
+function showWaiterModal() {
+  const selected = state.menuItems.filter(i => i.selected);
+  if (!selected.length) { showToast('請先勾選要點的菜 ⚠️'); return; }
+
+  const total = selected.reduce((s, i) => s + i.price * i.quantity, 0);
+  const restaurantName = state.restaurantName || `第 ${state.restaurantNum} 間餐廳`;
+
+  document.getElementById('waiterRestaurantName').textContent = restaurantName;
+  document.getElementById('waiterContent').innerHTML = selected.map(item => `
+    <div class="flex justify-between items-baseline py-1.5 border-b border-gray-100">
+      <div>
+        <span class="font-medium">${escHtml(item.ja)}</span>
+        ${item.quantity > 1 ? `<span class="text-gray-500 text-sm"> × ${item.quantity}</span>` : ''}
+        <div class="text-xs text-gray-400">${escHtml(item.zh)}</div>
+      </div>
+      <span class="font-semibold ml-3 text-sm">¥${(item.price * item.quantity).toLocaleString()}</span>
+    </div>
+  `).join('');
+
+  document.getElementById('waiterTotal').textContent = `¥${total.toLocaleString()}`;
+  document.getElementById('waiterModal').classList.remove('hidden');
+}
+
+function closeWaiterModal() {
+  document.getElementById('waiterModal').classList.add('hidden');
+}
+
+// ==================== 記帳到 Google Sheets ====================
+async function saveToSheets() {
+  if (!state.scriptUrl) {
+    showToast('請先在設定中填入 Apps Script URL ⚠️');
+    openSettings();
+    return;
+  }
+
+  const selected = state.menuItems.filter(i => i.selected);
+  if (!selected.length) { showToast('請先勾選要記帳的品項 ⚠️'); return; }
+
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const date = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())}`;
+  const time = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const restaurant = state.restaurantName || `第${state.restaurantNum}間餐廳`;
+  const total = selected.reduce((s, i) => s + i.price * i.quantity, 0);
+
+  showToast('記帳中... 📊');
+
+  try {
+    const payload = JSON.stringify({
+      date, time, restaurant,
+      items: selected.map(i => ({
+        ja: i.ja, zh: i.zh,
+        price: i.price, quantity: i.quantity,
+        subtotal: i.price * i.quantity
+      })),
+      total
+    });
+    await fetch(state.scriptUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: new URLSearchParams({ payload })
+    });
+    showToast('已記帳到 Google 試算表 ✅');
+  } catch (err) {
+    showToast('記帳失敗，請確認網路連線 ❌');
+  }
+}
+
+// ==================== Utils ====================
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+let toastTimer;
+function showToast(msg, duration = 2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add('hidden'), duration);
+}
+
+// ==================== Start ====================
+init();
+</script>
+</body>
+</html>
