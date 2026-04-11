@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>旅遊點餐助手 🍣</title>
+  <title>旅遊點餐助手 🗺️</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { -webkit-tap-highlight-color: transparent; }
@@ -11,6 +11,8 @@
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
     .spin { animation: spin 1s linear infinite; }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .country-scroll::-webkit-scrollbar { display: none; }
+    .country-scroll { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen select-none">
@@ -44,8 +46,8 @@
 <!-- ===== 給店員看 Modal ===== -->
 <div id="waiterModal" class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
   <div class="bg-white text-gray-900 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl">
-    <div class="bg-red-600 text-white px-6 py-4 text-center">
-      <p class="text-xs opacity-80 mb-1">ご注文をお願いします</p>
+    <div id="waiterHeader" class="bg-red-600 text-white px-6 py-4 text-center">
+      <p class="text-xs opacity-80 mb-1" id="waiterSubtitle">ご注文をお願いします</p>
       <h2 class="text-xl font-bold" id="waiterRestaurantName"></h2>
     </div>
     <div class="px-6 py-4 space-y-1 max-h-72 overflow-y-auto" id="waiterContent"></div>
@@ -57,7 +59,7 @@
     </div>
     <div class="px-6 pb-5 pt-2">
       <button onclick="closeWaiterModal()"
-        class="w-full bg-gray-900 text-white rounded-xl py-3 font-semibold">
+        class="w-full bg-gray-900 text-white rounded-xl py-3 font-semibold" id="waiterCloseBtn">
         閉じる（關閉）
       </button>
     </div>
@@ -88,7 +90,7 @@
 <div class="sticky top-0 bg-slate-900/95 backdrop-blur border-b border-slate-800 z-40">
   <div class="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
     <div>
-      <h1 class="text-base font-bold">🍣 點餐助手</h1>
+      <h1 class="text-base font-bold">🗺️ 旅遊點餐助手</h1>
       <p class="text-xs text-slate-400" id="restaurantLabel">第 1 間餐廳</p>
     </div>
     <div class="flex gap-2">
@@ -106,6 +108,85 @@
 
 <!-- ===== 主要內容 ===== -->
 <div class="max-w-lg mx-auto px-4 pt-4 pb-36 space-y-4">
+
+  <!-- 國家選擇 -->
+  <div class="bg-slate-800 rounded-2xl p-3 space-y-2">
+    <h2 class="font-semibold text-sm px-1">🌏 選擇國家</h2>
+    <div class="country-scroll flex gap-2 overflow-x-auto pb-1">
+      <!-- 亞洲 -->
+      <button onclick="selectCountry('japan')" id="btn-japan"
+        class="country-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 text-center transition-all">
+        <span class="text-xl">🇯🇵</span>
+        <span class="text-xs font-medium whitespace-nowrap">日本</span>
+      </button>
+      <button onclick="selectCountry('korea')" id="btn-korea"
+        class="country-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 text-center transition-all">
+        <span class="text-xl">🇰🇷</span>
+        <span class="text-xs font-medium whitespace-nowrap">韓國</span>
+      </button>
+      <button onclick="selectCountry('thailand')" id="btn-thailand"
+        class="country-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 text-center transition-all">
+        <span class="text-xl">🇹🇭</span>
+        <span class="text-xs font-medium whitespace-nowrap">泰國</span>
+      </button>
+      <button onclick="selectCountry('vietnam')" id="btn-vietnam"
+        class="country-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 text-center transition-all">
+        <span class="text-xl">🇻🇳</span>
+        <span class="text-xs font-medium whitespace-nowrap">越南</span>
+      </button>
+      <button onclick="selectCountry('singapore')" id="btn-singapore"
+        class="country-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 text-center transition-all">
+        <span class="text-xl">🇸🇬</span>
+        <span class="text-xs font-medium whitespace-nowrap">新加坡</span>
+      </button>
+      <button onclick="selectCountry('malaysia')" id="btn-malaysia"
+        class="country-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 text-center transition-all">
+        <span class="text-xl">🇲🇾</span>
+        <span class="text-xs font-medium whitespace-nowrap">馬來西亞</span>
+      </button>
+      <button onclick="selectCountry('hongkong')" id="btn-hongkong"
+        class="country-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 text-center transition-all">
+        <span class="text-xl">🇭🇰</span>
+        <span class="text-xs font-medium whitespace-nowrap">香港</span>
+      </button>
+      <button onclick="selectCountry('indonesia')" id="btn-indonesia"
+        class="country-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 text-center transition-all">
+        <span class="text-xl">🇮🇩</span>
+        <span class="text-xs font-medium whitespace-nowrap">印尼</span>
+      </button>
+      <button onclick="selectCountry('philippines')" id="btn-philippines"
+        class="country-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 text-center transition-all">
+        <span class="text-xl">🇵🇭</span>
+        <span class="text-xs font-medium whitespace-nowrap">菲律賓</span>
+      </button>
+      <!-- 歐美 -->
+      <button onclick="selectCountry('usa')" id="btn-usa"
+        class="country-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 text-center transition-all">
+        <span class="text-xl">🇺🇸</span>
+        <span class="text-xs font-medium whitespace-nowrap">美國</span>
+      </button>
+      <button onclick="selectCountry('uk')" id="btn-uk"
+        class="country-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 text-center transition-all">
+        <span class="text-xl">🇬🇧</span>
+        <span class="text-xs font-medium whitespace-nowrap">英國</span>
+      </button>
+      <button onclick="selectCountry('france')" id="btn-france"
+        class="country-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 text-center transition-all">
+        <span class="text-xl">🇫🇷</span>
+        <span class="text-xs font-medium whitespace-nowrap">法國</span>
+      </button>
+      <button onclick="selectCountry('italy')" id="btn-italy"
+        class="country-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 text-center transition-all">
+        <span class="text-xl">🇮🇹</span>
+        <span class="text-xs font-medium whitespace-nowrap">義大利</span>
+      </button>
+      <button onclick="selectCountry('australia')" id="btn-australia"
+        class="country-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 text-center transition-all">
+        <span class="text-xl">🇦🇺</span>
+        <span class="text-xs font-medium whitespace-nowrap">澳洲</span>
+      </button>
+    </div>
+  </div>
 
   <!-- 拍照區 -->
   <div class="bg-slate-800 rounded-2xl p-4 space-y-3">
@@ -161,9 +242,9 @@
 
     <!-- 手動新增 -->
     <div id="addManualRow" class="hidden flex gap-2">
-      <input id="manualJa" type="text" placeholder="日文菜名" class="flex-1 bg-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+      <input id="manualLocal" type="text" placeholder="原文菜名" class="flex-1 bg-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
       <input id="manualZh" type="text" placeholder="中文" class="flex-1 bg-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
-      <input id="manualPrice" type="number" placeholder="¥" class="w-20 bg-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+      <input id="manualPrice" type="number" placeholder="價格" class="w-20 bg-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
       <button onclick="addManualItem()" class="bg-blue-600 rounded-lg px-3 py-2 text-sm font-medium">新增</button>
     </div>
 
@@ -183,10 +264,10 @@
     <div class="flex items-center justify-between">
       <div>
         <p class="text-xs text-slate-400">已選 <span id="selectedCount" class="text-white font-medium">0</span> 項</p>
-        <p class="text-2xl font-bold">¥<span id="totalPrice">0</span></p>
+        <p class="text-2xl font-bold"><span id="currencySymbol">¥</span><span id="totalPrice">0</span></p>
       </div>
       <div class="flex gap-2">
-        <button onclick="showWaiterModal()"
+        <button onclick="showWaiterModal()" id="waiterBtn"
           class="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-lg">
           🇯🇵 給店員看
         </button>
@@ -205,23 +286,143 @@
 </div>
 
 <script>
+// ==================== Country Config ====================
+const COUNTRIES = {
+  japan:       { name: '日本',    flag: '🇯🇵', currency: '¥',   lang: '日文',     waiterSubtitle: 'ご注文をお願いします', waiterClose: '閉じる（關閉）',       headerColor: 'bg-red-600',   localPlaceholder: '日文菜名' },
+  korea:       { name: '韓國',    flag: '🇰🇷', currency: '₩',   lang: '韓文',     waiterSubtitle: '주문해 주세요',       waiterClose: '닫기（關閉）',         headerColor: 'bg-blue-700',  localPlaceholder: '韓文菜名' },
+  thailand:    { name: '泰國',    flag: '🇹🇭', currency: '฿',   lang: '泰文',     waiterSubtitle: 'กรุณาสั่งอาหาร',   waiterClose: 'ปิด（關閉）',         headerColor: 'bg-blue-600',  localPlaceholder: '泰文菜名' },
+  vietnam:     { name: '越南',    flag: '🇻🇳', currency: '₫',   lang: '越南文',   waiterSubtitle: 'Xin gọi món',        waiterClose: 'Đóng（關閉）',         headerColor: 'bg-red-700',   localPlaceholder: '越南文菜名' },
+  singapore:   { name: '新加坡',  flag: '🇸🇬', currency: 'S$',  lang: '英文',     waiterSubtitle: 'May I take your order?', waiterClose: 'Close（關閉）',    headerColor: 'bg-red-600',   localPlaceholder: '英文菜名' },
+  malaysia:    { name: '馬來西亞', flag: '🇲🇾', currency: 'RM',  lang: '馬來文',   waiterSubtitle: 'Boleh saya ambil pesanan?', waiterClose: 'Tutup（關閉）', headerColor: 'bg-blue-700',  localPlaceholder: '馬來文菜名' },
+  hongkong:    { name: '香港',    flag: '🇭🇰', currency: 'HK$', lang: '廣東話',   waiterSubtitle: '請問要點咩？',       waiterClose: '關閉',                 headerColor: 'bg-red-600',   localPlaceholder: '廣東話菜名' },
+  indonesia:   { name: '印尼',    flag: '🇮🇩', currency: 'Rp',  lang: '印尼文',   waiterSubtitle: 'Boleh pesan sekarang?', waiterClose: 'Tutup（關閉）',    headerColor: 'bg-red-600',   localPlaceholder: '印尼文菜名' },
+  philippines: { name: '菲律賓',  flag: '🇵🇭', currency: '₱',   lang: '菲律賓文', waiterSubtitle: 'Mag-order na po?',   waiterClose: 'Isara（關閉）',        headerColor: 'bg-blue-700',  localPlaceholder: '菲律賓文菜名' },
+  usa:         { name: '美國',    flag: '🇺🇸', currency: '$',   lang: '英文',     waiterSubtitle: 'May I take your order?', waiterClose: 'Close（關閉）',    headerColor: 'bg-blue-800',  localPlaceholder: '英文菜名' },
+  uk:          { name: '英國',    flag: '🇬🇧', currency: '£',   lang: '英文',     waiterSubtitle: 'May I take your order?', waiterClose: 'Close（關閉）',    headerColor: 'bg-blue-800',  localPlaceholder: '英文菜名' },
+  france:      { name: '法國',    flag: '🇫🇷', currency: '€',   lang: '法文',     waiterSubtitle: 'Je voudrais commander', waiterClose: 'Fermer（關閉）',   headerColor: 'bg-blue-700',  localPlaceholder: '法文菜名' },
+  italy:       { name: '義大利',  flag: '🇮🇹', currency: '€',   lang: '義大利文', waiterSubtitle: 'Vorrei ordinare',    waiterClose: 'Chiudi（關閉）',       headerColor: 'bg-green-700', localPlaceholder: '義大利文菜名' },
+  australia:   { name: '澳洲',    flag: '🇦🇺', currency: 'A$',  lang: '英文',     waiterSubtitle: 'May I take your order?', waiterClose: 'Close（關閉）',    headerColor: 'bg-green-700', localPlaceholder: '英文菜名' },
+};
+
 // ==================== State ====================
 const state = {
   restaurantNum: parseInt(localStorage.getItem('restaurantNum') || '1'),
   restaurantName: localStorage.getItem('restaurantName') || '',
   photos: [],      // [{data: base64, mime: string, preview: url}]
-  menuItems: [],   // [{id, ja, zh, price, quantity, selected}]
+  menuItems: [],   // [{id, local, zh, price, quantity, selected}]
   apiKey: localStorage.getItem('geminiApiKey') || '',
   scriptUrl: localStorage.getItem('appsScriptUrl') || '',
+  country: localStorage.getItem('country') || 'japan',
   nextId: 0,
 };
 
 // ==================== Init ====================
 function init() {
   updateRestaurantLabel();
+  renderCountrySelector();
+  updateCountryUI();
   if (!state.apiKey) {
     setTimeout(() => document.getElementById('settingsModal').classList.remove('hidden'), 600);
   }
+}
+
+// ==================== Country ====================
+function selectCountry(countryKey) {
+  state.country = countryKey;
+  localStorage.setItem('country', countryKey);
+  renderCountrySelector();
+  updateCountryUI();
+  showToast(`已切換到 ${COUNTRIES[countryKey].flag} ${COUNTRIES[countryKey].name}`);
+}
+
+function renderCountrySelector() {
+  const c = state.country;
+  document.querySelectorAll('.country-btn').forEach(btn => {
+    const key = btn.id.replace('btn-', '');
+    if (key === c) {
+      btn.className = btn.className.replace('bg-slate-700/50 border-slate-600 text-slate-300', '');
+      btn.classList.add('bg-blue-600/30', 'border-blue-500', 'text-white');
+      btn.classList.remove('bg-slate-700/50', 'border-slate-600', 'text-slate-300');
+    } else {
+      btn.classList.remove('bg-blue-600/30', 'border-blue-500', 'text-white');
+      btn.classList.add('bg-slate-700/50', 'border-slate-600', 'text-slate-300');
+    }
+  });
+}
+
+function updateCountryUI() {
+  const info = COUNTRIES[state.country];
+  // 更新貨幣符號
+  document.getElementById('currencySymbol').textContent = info.currency;
+  // 更新「給店員看」按鈕
+  const waiterBtn = document.getElementById('waiterBtn');
+  waiterBtn.textContent = `${info.flag} 給店員看`;
+  // 更新手動輸入 placeholder
+  const manualLocal = document.getElementById('manualLocal');
+  if (manualLocal) manualLocal.placeholder = info.localPlaceholder;
+  // 若已有菜單，重新渲染以更新價格符號
+  if (state.menuItems.length > 0) renderMenu();
+}
+
+function getCountryPrompt() {
+  const c = state.country;
+  const info = COUNTRIES[c];
+
+  if (c === 'japan') {
+    return `你是專業菜單翻譯助手，專門處理日本餐廳菜單。請仔細辨識菜單圖片中的所有菜色和價格。
+
+菜單可能包含日文或英文（或兩者混合），請都辨識並翻譯成中文。
+
+輸出純 JSON 陣列，格式如下（不要包含 markdown 符號或說明文字）：
+[
+  {"local": "唐揚げ定食", "zh": "炸雞塊定食", "price": 880},
+  {"local": "Grilled Salmon", "zh": "烤鮭魚", "price": 1200}
+]
+
+注意事項：
+- "local" 填寫菜單上的原文（日文優先；若只有英文則填英文）
+- "zh" 填寫中文翻譯
+- 只輸出 JSON，不要加任何說明
+- 若看不清楚價格，price 填 0
+- 包含所有可點品項：正餐、副餐、飲料、甜點、小菜
+- 套餐保留完整名稱（不拆開）
+- 若有多張圖片，合併成同一個陣列（去除重複品項）`;
+  }
+
+  const langNote = {
+    korea: '韓文（한글）優先；若只有英文則填英文',
+    thailand: '泰文（ภาษาไทย）優先；若只有英文則填英文',
+    vietnam: '越南文（Tiếng Việt）優先；若只有英文則填英文',
+    singapore: '英文為主',
+    malaysia: '馬來文（Bahasa Malaysia）優先；若只有英文則填英文',
+    hongkong: '廣東話或繁體中文優先；若只有英文則填英文',
+    indonesia: '印尼文（Bahasa Indonesia）優先；若只有英文則填英文',
+    philippines: '菲律賓文（Filipino/Tagalog）或英文，以菜單實際語言為準',
+    usa: '英文',
+    uk: '英文',
+    france: '法文（Français）優先；若只有英文則填英文',
+    italy: '義大利文（Italiano）優先；若只有英文則填英文',
+    australia: '英文',
+  }[c] || '菜單上的原文語言';
+
+  return `你是專業菜單翻譯助手，正在處理${info.name}餐廳的菜單。請仔細辨識菜單圖片中的所有菜色和價格。
+
+菜單可能包含${info.lang}或英文（或兩者混合），請都辨識並翻譯成繁體中文。
+
+輸出純 JSON 陣列，格式如下（不要包含 markdown 符號或說明文字）：
+[
+  {"local": "原文菜名", "zh": "中文翻譯", "price": 數字},
+  {"local": "Another Dish", "zh": "另一道菜", "price": 數字}
+]
+
+注意事項：
+- "local" 填寫菜單上的原文（${langNote}）
+- "zh" 填寫繁體中文翻譯
+- 只輸出 JSON，不要加任何說明
+- 若看不清楚價格，price 填 0（不要填貨幣符號，只填數字）
+- 包含所有可點品項：正餐、副餐、飲料、甜點、小菜
+- 套餐保留完整名稱（不拆開）
+- 若有多張圖片，合併成同一個陣列（去除重複品項）`;
 }
 
 // ==================== Settings ====================
@@ -340,22 +541,7 @@ async function translateMenu() {
 
   try {
     const parts = [
-      {
-        text: `你是專業日文菜單翻譯助手。請仔細辨識所有菜單圖片的菜色和價格。
-
-輸出純 JSON 陣列，格式如下（不要包含 markdown 符號或說明文字）：
-[
-  {"ja": "唐揚げ定食", "zh": "炸雞塊定食", "price": 880},
-  {"ja": "生ビール", "zh": "生啤酒", "price": 550}
-]
-
-注意事項：
-- 只輸出 JSON，不要加任何說明
-- 若看不清楚價格，price 填 0
-- 包含所有可點品項：正餐、副餐、飲料、甜點、小菜
-- 套餐保留完整名稱（不拆開）
-- 若有多張圖片，合併成同一個陣列（去除重複品項）`
-      },
+      { text: getCountryPrompt() },
       ...state.photos.map(p => ({
         inline_data: { mime_type: p.mime, data: p.data }
       }))
@@ -393,7 +579,7 @@ async function translateMenu() {
 
     state.menuItems = parsed.map(item => ({
       id: state.nextId++,
-      ja: item.ja || '',
+      local: item.local || item.ja || '',   // 相容舊格式
       zh: item.zh || '',
       price: parseInt(item.price) || 0,
       quantity: 1,
@@ -417,6 +603,8 @@ async function translateMenu() {
 // ==================== Menu Rendering ====================
 function renderMenu() {
   if (!state.menuItems.length) return;
+
+  const info = COUNTRIES[state.country];
 
   document.getElementById('menuSection').classList.remove('hidden');
   document.getElementById('itemCountLabel').textContent =
@@ -447,9 +635,9 @@ function renderMenu() {
         <!-- 菜名 -->
         <div class="flex-1 min-w-0 cursor-pointer" onclick="toggleItem(${item.id})">
           <p class="text-sm font-medium leading-tight">${escHtml(item.zh)}</p>
-          <p class="text-xs text-slate-400 mt-0.5 truncate">${escHtml(item.ja)}</p>
+          <p class="text-xs text-slate-400 mt-0.5 truncate">${escHtml(item.local)}</p>
           <p class="text-sm font-bold mt-1 ${item.price > 0 ? 'text-blue-400' : 'text-slate-500'}">
-            ${item.price > 0 ? '¥' + item.price.toLocaleString() : '價格未知'}
+            ${item.price > 0 ? info.currency + item.price.toLocaleString() : '價格未知'}
           </p>
         </div>
 
@@ -505,10 +693,12 @@ function selectNone() {
 }
 
 function updateTotal() {
+  const info = COUNTRIES[state.country];
   const selected = state.menuItems.filter(i => i.selected);
   const total = selected.reduce((s, i) => s + i.price * i.quantity, 0);
   document.getElementById('selectedCount').textContent = selected.length;
   document.getElementById('totalPrice').textContent = total.toLocaleString();
+  document.getElementById('currencySymbol').textContent = info.currency;
   document.getElementById('actionBar').classList.toggle('hidden', state.menuItems.length === 0);
 }
 
@@ -522,13 +712,13 @@ function toggleManualAdd() {
 }
 
 function addManualItem() {
-  const ja = document.getElementById('manualJa').value.trim();
+  const local = document.getElementById('manualLocal').value.trim();
   const zh = document.getElementById('manualZh').value.trim();
   const price = parseInt(document.getElementById('manualPrice').value) || 0;
-  if (!zh && !ja) { showToast('至少輸入中文或日文菜名 ⚠️'); return; }
+  if (!zh && !local) { showToast('至少輸入中文或原文菜名 ⚠️'); return; }
 
-  state.menuItems.push({ id: state.nextId++, ja: ja || zh, zh: zh || ja, price, quantity: 1, selected: true });
-  document.getElementById('manualJa').value = '';
+  state.menuItems.push({ id: state.nextId++, local: local || zh, zh: zh || local, price, quantity: 1, selected: true });
+  document.getElementById('manualLocal').value = '';
   document.getElementById('manualZh').value = '';
   document.getElementById('manualPrice').value = '';
   document.getElementById('addManualRow').classList.add('hidden');
@@ -541,22 +731,30 @@ function showWaiterModal() {
   const selected = state.menuItems.filter(i => i.selected);
   if (!selected.length) { showToast('請先勾選要點的菜 ⚠️'); return; }
 
+  const info = COUNTRIES[state.country];
   const total = selected.reduce((s, i) => s + i.price * i.quantity, 0);
   const restaurantName = state.restaurantName || `第 ${state.restaurantNum} 間餐廳`;
 
+  // 更新 modal 頭部顏色
+  const header = document.getElementById('waiterHeader');
+  header.className = `${info.headerColor} text-white px-6 py-4 text-center`;
+
+  document.getElementById('waiterSubtitle').textContent = info.waiterSubtitle;
   document.getElementById('waiterRestaurantName').textContent = restaurantName;
+  document.getElementById('waiterCloseBtn').textContent = info.waiterClose;
+
   document.getElementById('waiterContent').innerHTML = selected.map(item => `
     <div class="flex justify-between items-baseline py-1.5 border-b border-gray-100">
       <div>
-        <span class="font-medium">${escHtml(item.ja)}</span>
+        <span class="font-medium text-base">${escHtml(item.local)}</span>
         ${item.quantity > 1 ? `<span class="text-gray-500 text-sm"> × ${item.quantity}</span>` : ''}
         <div class="text-xs text-gray-400">${escHtml(item.zh)}</div>
       </div>
-      <span class="font-semibold ml-3 text-sm">¥${(item.price * item.quantity).toLocaleString()}</span>
+      <span class="font-semibold ml-3 text-sm">${item.price > 0 ? info.currency + (item.price * item.quantity).toLocaleString() : '—'}</span>
     </div>
   `).join('');
 
-  document.getElementById('waiterTotal').textContent = `¥${total.toLocaleString()}`;
+  document.getElementById('waiterTotal').textContent = `${info.currency}${total.toLocaleString()}`;
   document.getElementById('waiterModal').classList.remove('hidden');
 }
 
@@ -581,14 +779,17 @@ async function saveToSheets() {
   const time = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
   const restaurant = state.restaurantName || `第${state.restaurantNum}間餐廳`;
   const total = selected.reduce((s, i) => s + i.price * i.quantity, 0);
+  const info = COUNTRIES[state.country];
 
   showToast('記帳中... 📊');
 
   try {
     const payload = JSON.stringify({
       date, time, restaurant,
+      country: info.name,
+      currency: info.currency,
       items: selected.map(i => ({
-        ja: i.ja, zh: i.zh,
+        local: i.local, zh: i.zh,
         price: i.price, quantity: i.quantity,
         subtotal: i.price * i.quantity
       })),
