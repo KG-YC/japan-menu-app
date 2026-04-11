@@ -596,7 +596,11 @@ async function translateMenu() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 4096 }
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 4096,
+            thinkingConfig: { thinkingBudget: 0 }  // 關閉 2.5 的思考模式，避免混入推理文字
+          }
         })
       }
     );
@@ -607,7 +611,12 @@ async function translateMenu() {
     }
 
     const data = await res.json();
-    let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // 2.5 思考模式可能有多個 parts（thought + answer），取所有 text parts 合併
+    const allParts = data.candidates?.[0]?.content?.parts || [];
+    let text = allParts
+      .filter(p => !p.thought)           // 過濾掉思考內容
+      .map(p => p.text || '')
+      .join('\n');
 
     // 清理 JSON：移除 markdown 包裹、BOM、控制字元
     text = text
@@ -616,8 +625,11 @@ async function translateMenu() {
       .replace(/^\uFEFF/, '')
       .trim();
 
-    // 找到 JSON 陣列（Gemini 有時會在前後加說明文字）
-    const match = text.match(/\[[\s\S]*\]/);
+    // 找到 JSON 陣列（取最後一個，跳過思考文字中可能的方括號）
+    const allMatches = [...text.matchAll(/\[[\s\S]*?\]/g)];
+    // 優先找包含 "local" 或 "zh" 的陣列
+    const match = allMatches.reverse().find(m => m[0].includes('"local"') || m[0].includes('"zh"') || m[0].includes('"ja"'))
+      || allMatches[0];
     if (!match) {
       console.error('Gemini 原始回傳：', text);
       throw new Error('無法解析格式，請重試');
