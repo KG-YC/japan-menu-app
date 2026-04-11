@@ -113,6 +113,12 @@
   <div class="bg-slate-800 rounded-2xl p-3 space-y-2">
     <h2 class="font-semibold text-sm px-1">🌏 選擇國家</h2>
     <div class="country-scroll flex gap-2 overflow-x-auto pb-1">
+      <!-- 自動偵測 -->
+      <button onclick="selectCountry('auto')" id="btn-auto"
+        class="country-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 text-center transition-all">
+        <span class="text-xl">🌐</span>
+        <span class="text-xs font-medium whitespace-nowrap">自動</span>
+      </button>
       <!-- 亞洲 -->
       <button onclick="selectCountry('japan')" id="btn-japan"
         class="country-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 text-center transition-all">
@@ -288,6 +294,7 @@
 <script>
 // ==================== Country Config ====================
 const COUNTRIES = {
+  auto:        { name: '自動偵測', flag: '🌐', currency: '',   lang: '自動',     waiterSubtitle: 'Order please',         waiterClose: '關閉',                 headerColor: 'bg-slate-700',  localPlaceholder: '原文菜名' },
   japan:       { name: '日本',    flag: '🇯🇵', currency: '¥',   lang: '日文',     waiterSubtitle: 'ご注文をお願いします', waiterClose: '閉じる（關閉）',       headerColor: 'bg-red-600',   localPlaceholder: '日文菜名' },
   korea:       { name: '韓國',    flag: '🇰🇷', currency: '₩',   lang: '韓文',     waiterSubtitle: '주문해 주세요',       waiterClose: '닫기（關閉）',         headerColor: 'bg-blue-700',  localPlaceholder: '韓文菜名' },
   thailand:    { name: '泰國',    flag: '🇹🇭', currency: '฿',   lang: '泰文',     waiterSubtitle: 'กรุณาสั่งอาหาร',   waiterClose: 'ปิด（關閉）',         headerColor: 'bg-blue-600',  localPlaceholder: '泰文菜名' },
@@ -312,7 +319,8 @@ const state = {
   menuItems: [],   // [{id, local, zh, price, quantity, selected}]
   apiKey: localStorage.getItem('geminiApiKey') || '',
   scriptUrl: localStorage.getItem('appsScriptUrl') || '',
-  country: localStorage.getItem('country') || 'japan',
+  country: localStorage.getItem('country') || 'auto',
+  detectedCountry: null,  // 自動偵測後的結果
   nextId: 0,
 };
 
@@ -329,10 +337,20 @@ function init() {
 // ==================== Country ====================
 function selectCountry(countryKey) {
   state.country = countryKey;
+  state.detectedCountry = null;
   localStorage.setItem('country', countryKey);
   renderCountrySelector();
   updateCountryUI();
-  showToast(`已切換到 ${COUNTRIES[countryKey].flag} ${COUNTRIES[countryKey].name}`);
+  const info = COUNTRIES[countryKey];
+  showToast(countryKey === 'auto' ? '🌐 已切換為自動偵測語言' : `已切換到 ${info.flag} ${info.name}`);
+}
+
+function getActiveCountry() {
+  // 自動模式下，若已偵測到國家，使用偵測結果；否則用 auto 的預設值
+  if (state.country === 'auto' && state.detectedCountry) {
+    return COUNTRIES[state.detectedCountry] || COUNTRIES.auto;
+  }
+  return COUNTRIES[state.country] || COUNTRIES.auto;
 }
 
 function renderCountrySelector() {
@@ -351,12 +369,16 @@ function renderCountrySelector() {
 }
 
 function updateCountryUI() {
-  const info = COUNTRIES[state.country];
+  const info = getActiveCountry();
   // 更新貨幣符號
-  document.getElementById('currencySymbol').textContent = info.currency;
+  document.getElementById('currencySymbol').textContent = info.currency || '';
   // 更新「給店員看」按鈕
   const waiterBtn = document.getElementById('waiterBtn');
-  waiterBtn.textContent = `${info.flag} 給店員看`;
+  if (state.country === 'auto' && !state.detectedCountry) {
+    waiterBtn.textContent = `🌐 給店員看`;
+  } else {
+    waiterBtn.textContent = `${info.flag} 給店員看`;
+  }
   // 更新手動輸入 placeholder
   const manualLocal = document.getElementById('manualLocal');
   if (manualLocal) manualLocal.placeholder = info.localPlaceholder;
@@ -367,6 +389,26 @@ function updateCountryUI() {
 function getCountryPrompt() {
   const c = state.country;
   const info = COUNTRIES[c];
+
+  if (c === 'auto') {
+    return `你是專業菜單翻譯助手。請自動偵測菜單圖片的語言，並將所有品項翻譯為繁體中文。
+
+**只輸出 JSON 陣列，不要有任何說明、markdown 符號或多餘文字。**
+
+格式（每個品項必須有這三個欄位）：
+[
+  {"local": "菜單原文", "zh": "繁體中文翻譯", "price": 數字},
+  {"local": "Another Item", "zh": "另一個品項", "price": 數字}
+]
+
+規則：
+- local：菜單上的原文（保留原始語言，如日文、韓文、泰文、英文等）
+- zh：繁體中文翻譯
+- price：只填數字，不含貨幣符號；看不清楚填 0
+- 包含所有可點品項（正餐、飲料、甜點、套餐等）
+- 多張圖片請合併為一個陣列，去除重複品項
+- 絕對不要在 JSON 前後加任何文字`;
+  }
 
   if (c === 'japan') {
     return `你是專業菜單翻譯助手，專門處理日本餐廳菜單。請仔細辨識菜單圖片中的所有菜色和價格。
@@ -567,14 +609,28 @@ async function translateMenu() {
     const data = await res.json();
     let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    // 清理 JSON
-    text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    // 清理 JSON：移除 markdown 包裹、BOM、控制字元
+    text = text
+      .replace(/```json\s*/gi, '')
+      .replace(/```\s*/g, '')
+      .replace(/^\uFEFF/, '')
+      .trim();
 
-    // 找到 JSON 陣列（有時 Gemini 會加前綴文字）
+    // 找到 JSON 陣列（Gemini 有時會在前後加說明文字）
     const match = text.match(/\[[\s\S]*\]/);
-    if (!match) throw new Error('無法解析 Gemini 回傳的格式');
+    if (!match) {
+      console.error('Gemini 原始回傳：', text);
+      throw new Error('無法解析格式，請重試');
+    }
 
-    const parsed = JSON.parse(match[0]);
+    let parsed;
+    try {
+      parsed = JSON.parse(match[0]);
+    } catch (e) {
+      // 嘗試修復常見錯誤：trailing comma
+      const fixed = match[0].replace(/,\s*([}\]])/g, '$1');
+      parsed = JSON.parse(fixed);
+    }
     if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('菜單辨識結果為空');
 
     state.menuItems = parsed.map(item => ({
@@ -586,8 +642,23 @@ async function translateMenu() {
       selected: false
     }));
 
+    // 自動偵測模式：根據第一個品項的 local 文字猜測語言
+    if (state.country === 'auto') {
+      const sample = state.menuItems.slice(0, 5).map(i => i.local).join('');
+      const detected = detectLanguageFromText(sample);
+      if (detected) {
+        state.detectedCountry = detected;
+        updateCountryUI();
+        const dInfo = COUNTRIES[detected];
+        showToast(`找到 ${state.menuItems.length} 項 ✅ 偵測為 ${dInfo.flag} ${dInfo.name}`);
+      } else {
+        showToast(`找到 ${state.menuItems.length} 個品項 ✅`);
+      }
+    } else {
+      showToast(`找到 ${state.menuItems.length} 個品項 ✅`);
+    }
+
     renderMenu();
-    showToast(`找到 ${state.menuItems.length} 個品項 ✅`);
 
   } catch (err) {
     console.error(err);
@@ -604,7 +675,7 @@ async function translateMenu() {
 function renderMenu() {
   if (!state.menuItems.length) return;
 
-  const info = COUNTRIES[state.country];
+  const info = getActiveCountry();
 
   document.getElementById('menuSection').classList.remove('hidden');
   document.getElementById('itemCountLabel').textContent =
@@ -693,7 +764,7 @@ function selectNone() {
 }
 
 function updateTotal() {
-  const info = COUNTRIES[state.country];
+  const info = getActiveCountry();
   const selected = state.menuItems.filter(i => i.selected);
   const total = selected.reduce((s, i) => s + i.price * i.quantity, 0);
   document.getElementById('selectedCount').textContent = selected.length;
@@ -731,7 +802,7 @@ function showWaiterModal() {
   const selected = state.menuItems.filter(i => i.selected);
   if (!selected.length) { showToast('請先勾選要點的菜 ⚠️'); return; }
 
-  const info = COUNTRIES[state.country];
+  const info = getActiveCountry();
   const total = selected.reduce((s, i) => s + i.price * i.quantity, 0);
   const restaurantName = state.restaurantName || `第 ${state.restaurantNum} 間餐廳`;
 
@@ -779,7 +850,7 @@ async function saveToSheets() {
   const time = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
   const restaurant = state.restaurantName || `第${state.restaurantNum}間餐廳`;
   const total = selected.reduce((s, i) => s + i.price * i.quantity, 0);
-  const info = COUNTRIES[state.country];
+  const info = getActiveCountry();
 
   showToast('記帳中... 📊');
 
@@ -822,6 +893,31 @@ function showToast(msg, duration = 2500) {
   el.classList.remove('hidden');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.add('hidden'), duration);
+}
+
+// ==================== 語言偵測 ====================
+function detectLanguageFromText(text) {
+  if (!text) return null;
+  // 用 Unicode 區段判斷主要語言
+  const counts = {
+    japan:       (text.match(/[\u3040-\u309F\u30A0-\u30FF]/g) || []).length,  // 平假名/片假名
+    korea:       (text.match(/[\uAC00-\uD7AF]/g) || []).length,                // 韓文字母
+    thailand:    (text.match(/[\u0E00-\u0E7F]/g) || []).length,                // 泰文
+    vietnam:     (text.match(/[\u1EA0-\u1EF9\u00C0-\u00FF]/g) || []).length,  // 越南文
+    france:      0, italy: 0, // 法/義文難以從字元區分，靠關鍵字
+    china:       (text.match(/[\u4E00-\u9FFF]/g) || []).length,                // 中日韓漢字（輔助）
+  };
+
+  // 韓文最明確
+  if (counts.korea > 0) return 'korea';
+  // 泰文最明確
+  if (counts.thailand > 0) return 'thailand';
+  // 日文（平假名/片假名）
+  if (counts.japan > 0) return 'japan';
+  // 越南文（帶聲調的拉丁字母）
+  if (counts.vietnam > 2) return 'vietnam';
+
+  return null; // 無法判斷（英文菜單不足以區分國家）
 }
 
 // ==================== Start ====================
