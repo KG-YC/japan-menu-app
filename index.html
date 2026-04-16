@@ -407,6 +407,7 @@ function getCountryPrompt() {
 - price：只填數字，不含貨幣符號；看不清楚填 0
 - 包含所有可點品項（正餐、飲料、甜點、套餐等）
 - 多張圖片請合併為一個陣列，去除重複品項
+- **套餐/定食/組合**：若多道菜有一個共同總價（套餐），請作為「一個品項」輸出，不要拆散各組成部分。例如：定食含飯+湯+主菜，local 填套餐名、price 填套餐總價
 - 絕對不要在 JSON 前後加任何文字`;
   }
 
@@ -427,7 +428,7 @@ function getCountryPrompt() {
 - 只輸出 JSON，不要加任何說明
 - 若看不清楚價格，price 填 0
 - 包含所有可點品項：正餐、副餐、飲料、甜點、小菜
-- 套餐保留完整名稱（不拆開）
+- **套餐/定食/組合**：若多道菜有一個共同總價，請作為「一個品項」輸出，不要拆散各組成部分（如「ひつまぶし定食」含主菜+湯+小菜，local 填套餐名、price 填套餐總價）
 - 若有多張圖片，合併成同一個陣列（去除重複品項）`;
   }
 
@@ -463,7 +464,7 @@ function getCountryPrompt() {
 - 只輸出 JSON，不要加任何說明
 - 若看不清楚價格，price 填 0（不要填貨幣符號，只填數字）
 - 包含所有可點品項：正餐、副餐、飲料、甜點、小菜
-- 套餐保留完整名稱（不拆開）
+- **套餐/組合**：若多道菜有一個共同總價，請作為「一個品項」輸出，不要拆散各組成部分
 - 若有多張圖片，合併成同一個陣列（去除重複品項）`;
 }
 
@@ -534,39 +535,53 @@ function clearSession() {
 }
 
 // ==================== Photos ====================
+// 壓縮圖片到 1280px 以內，JPEG 0.82 品質，大幅減少傳輸量（3MB → ~250KB）
+function compressImage(file) {
+  return new Promise((resolve) => {
+    const MAX = 1280;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const w = img.width, h = img.height;
+        let nw = w, nh = h;
+        if (w > MAX || h > MAX) {
+          if (w > h) { nw = MAX; nh = Math.round(h * MAX / w); }
+          else       { nh = MAX; nw = Math.round(w * MAX / h); }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = nw; canvas.height = nh;
+        canvas.getContext('2d').drawImage(img, 0, 0, nw, nh);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        resolve({ data: dataUrl.split(',')[1], mime: 'image/jpeg', preview: dataUrl });
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function handlePhotos(event) {
   const files = Array.from(event.target.files);
   if (!files.length) return;
 
   state.photos = [];
   document.getElementById('photoPreviews').innerHTML = '';
+  document.getElementById('photoCount').textContent = '壓縮中...';
 
-  let loaded = 0;
-  files.forEach((file, index) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      state.photos[index] = {
-        data: e.target.result.split(',')[1],
-        mime: file.type || 'image/jpeg',
-        preview: e.target.result
-      };
-      loaded++;
-
-      // 縮圖
+  Promise.all(files.map(compressImage)).then(results => {
+    results.forEach((photo, index) => {
+      state.photos[index] = photo;
       const thumb = document.createElement('div');
       thumb.className = 'relative flex-shrink-0';
       thumb.innerHTML = `
-        <img src="${e.target.result}" class="w-16 h-16 object-cover rounded-lg border border-slate-600">
+        <img src="${photo.preview}" class="w-16 h-16 object-cover rounded-lg border border-slate-600">
         <span class="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">${index + 1}</span>
       `;
       document.getElementById('photoPreviews').appendChild(thumb);
-
-      if (loaded === files.length) {
-        document.getElementById('photoCount').textContent = `${files.length} 張`;
-        document.getElementById('translateBtn').disabled = false;
-      }
-    };
-    reader.readAsDataURL(file);
+    });
+    document.getElementById('photoCount').textContent = `${files.length} 張`;
+    document.getElementById('translateBtn').disabled = false;
   });
 }
 
