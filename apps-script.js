@@ -20,8 +20,7 @@ const HEADERS = ['日期', '時間', '餐廳', '日文菜名', '中文菜名', '
 
 function doPost(e) {
   try {
-    const raw = e.postData.contents;
-    const data = JSON.parse(raw);
+    const data = JSON.parse(e.parameter.payload);
 
     const ss = SpreadsheetApp.openById(SHEET_ID);
     let sheet = ss.getSheetByName(SHEET_NAME);
