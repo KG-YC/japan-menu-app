@@ -880,6 +880,7 @@ async function saveToSheets() {
   const info = getActiveCountry();
 
   showToast('記帳中... 📊');
+  console.log('[記帳] 送出品項 local 欄位：', selected.map(i => i.local));
 
   try {
     const payload = JSON.stringify({
