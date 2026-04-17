@@ -40,7 +40,7 @@ function doPost(e) {
         data.date,
         data.time,
         data.restaurant,
-        item.ja,
+        item.local,
         item.zh,
         item.price,
         item.quantity,
