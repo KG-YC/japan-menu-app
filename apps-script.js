@@ -59,7 +59,7 @@ function doPost(e) {
   }
 }
 
-// 測試用（瀏覽器直接開 URL 時回傳 OK）
+// 測試用（瀏覽器直接開 URL 時回傳版本資訊）
 function doGet(e) {
-  return ContentService.createTextOutput('旅遊點餐助手 API OK ✅');
+  return ContentService.createTextOutput('旅遊點餐助手 v3-local ✅');
 }
