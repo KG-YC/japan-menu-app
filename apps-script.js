@@ -19,8 +19,30 @@ const SHEET_NAME = '點餐紀錄';
 const HEADERS = ['日期', '時間', '餐廳', '日文菜名', '中文菜名', '單價(¥)', '數量', '小計(¥)', '本餐合計(¥)'];
 
 function doPost(e) {
+  const props = PropertiesService.getScriptProperties();
+
+  // 記錄呼叫時間與原始 payload（供 doGet debug 用）
+  props.setProperty('lastPostTime', new Date().toISOString());
+
   try {
-    const data = JSON.parse(e.parameter.payload);
+    // 嘗試所有可能的讀取方式
+    const rawPayload = e.parameter.payload
+      || (e.postData && e.postData.contents)
+      || '';
+
+    props.setProperty('lastPayload', rawPayload.substring(0, 800));
+    props.setProperty('lastMethod', rawPayload ? 'e.parameter.payload' : 'empty');
+
+    if (!rawPayload) {
+      props.setProperty('lastStatus', 'ERROR: payload 為空');
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: 'payload empty' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const data = JSON.parse(rawPayload);
+    const firstLocal = data.items && data.items[0] ? data.items[0].local : '(no items)';
+    props.setProperty('lastStatus', 'SUCCESS, first.local=' + firstLocal);
 
     const ss = SpreadsheetApp.openById(SHEET_ID);
     let sheet = ss.getSheetByName(SHEET_NAME);
@@ -44,7 +66,7 @@ function doPost(e) {
         item.price,
         item.quantity,
         item.subtotal,
-        index === 0 ? data.total : ''  // 本餐合計只寫第一行
+        index === 0 ? data.total : ''
       ]);
     });
 
@@ -53,13 +75,23 @@ function doPost(e) {
       .setMimeType(ContentService.MimeType.JSON);
 
   } catch (err) {
+    props.setProperty('lastStatus', 'ERROR: ' + err.message);
     return ContentService
       .createTextOutput(JSON.stringify({ success: false, error: err.message }))
       .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
-// 測試用（瀏覽器直接開 URL 時回傳版本資訊）
+// 瀏覽器開 URL 時回傳版本 + 最後一次 POST 的 debug 資訊
 function doGet(e) {
-  return ContentService.createTextOutput('旅遊點餐助手 v3-local ✅');
+  const props = PropertiesService.getScriptProperties();
+  const debug = {
+    version: 'v4-debug',
+    lastPostTime: props.getProperty('lastPostTime') || '從未收到 POST',
+    lastStatus: props.getProperty('lastStatus') || 'none',
+    lastPayload: props.getProperty('lastPayload') || 'none',
+  };
+  return ContentService
+    .createTextOutput(JSON.stringify(debug, null, 2))
+    .setMimeType(ContentService.MimeType.JSON);
 }
