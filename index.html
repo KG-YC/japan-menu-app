@@ -880,7 +880,6 @@ async function saveToSheets() {
   const info = getActiveCountry();
 
   showToast('記帳中... 📊');
-  alert('[Debug] local 欄位：\n' + selected.map(i => `${i.local || '(空)'} | ${i.zh}`).join('\n'));
 
   try {
     const payload = JSON.stringify({
@@ -894,10 +893,10 @@ async function saveToSheets() {
       })),
       total
     });
-    await fetch(state.scriptUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      body: new URLSearchParams({ payload })
+    // Apps Script 會把 POST redirect 成 GET 並丟掉 body
+    // 改用 GET + query string，redirect 後 params 依然保留
+    await fetch(`${state.scriptUrl}?payload=${encodeURIComponent(payload)}`, {
+      mode: 'no-cors'
     });
     showToast('已記帳到 Google 試算表 ✅');
   } catch (err) {

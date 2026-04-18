@@ -14,84 +14,79 @@
 
 const SHEET_ID = '1UZdBLmVummTCPhKHusVQBnjdd_nPGcj6pZ9Z54KywMU';
 const SHEET_NAME = '點餐紀錄';
-
-// 表頭（第一次執行時自動建立）
 const HEADERS = ['日期', '時間', '餐廳', '日文菜名', '中文菜名', '單價(¥)', '數量', '小計(¥)', '本餐合計(¥)'];
 
-function doPost(e) {
+function writeToSheet_(data) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  let sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAME);
+    sheet.appendRow(HEADERS);
+    sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  data.items.forEach((item, index) => {
+    sheet.appendRow([
+      data.date, data.time, data.restaurant,
+      item.local, item.zh, item.price, item.quantity, item.subtotal,
+      index === 0 ? data.total : ''
+    ]);
+  });
+  return data.items.length;
+}
+
+// 主要記帳入口：前端用 GET + ?payload=... 送過來
+// （POST 會被 Apps Script 302 redirect 轉成 GET 並丟掉 body，所以改用 GET）
+function doGet(e) {
   const props = PropertiesService.getScriptProperties();
 
-  // 記錄呼叫時間與原始 payload（供 doGet debug 用）
-  props.setProperty('lastPostTime', new Date().toISOString());
-
-  try {
-    // 嘗試所有可能的讀取方式
-    const rawPayload = e.parameter.payload
-      || (e.postData && e.postData.contents)
-      || '';
-
-    props.setProperty('lastPayload', rawPayload.substring(0, 800));
-    props.setProperty('lastMethod', rawPayload ? 'e.parameter.payload' : 'empty');
-
-    if (!rawPayload) {
-      props.setProperty('lastStatus', 'ERROR: payload 為空');
+  if (e.parameter && e.parameter.payload) {
+    props.setProperty('lastTime', new Date().toISOString());
+    try {
+      const data = JSON.parse(e.parameter.payload);
+      const count = writeToSheet_(data);
+      const firstLocal = data.items && data.items[0] ? data.items[0].local : '?';
+      props.setProperty('lastStatus', 'OK, count=' + count + ', first.local=' + firstLocal);
       return ContentService
-        .createTextOutput(JSON.stringify({ success: false, error: 'payload empty' }))
+        .createTextOutput(JSON.stringify({ success: true, count: count }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      props.setProperty('lastStatus', 'ERROR: ' + err.message);
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
         .setMimeType(ContentService.MimeType.JSON);
     }
+  }
 
-    const data = JSON.parse(rawPayload);
-    const firstLocal = data.items && data.items[0] ? data.items[0].local : '(no items)';
-    props.setProperty('lastStatus', 'SUCCESS, first.local=' + firstLocal);
+  // 無 payload → 回傳 debug 資訊
+  return ContentService
+    .createTextOutput(JSON.stringify({
+      version: 'v5-get',
+      lastTime: props.getProperty('lastTime') || 'never',
+      lastStatus: props.getProperty('lastStatus') || 'none',
+    }, null, 2))
+    .setMimeType(ContentService.MimeType.JSON);
+}
 
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    let sheet = ss.getSheetByName(SHEET_NAME);
-
-    // 第一次自動建立工作表與表頭
-    if (!sheet) {
-      sheet = ss.insertSheet(SHEET_NAME);
-      sheet.appendRow(HEADERS);
-      sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight('bold');
-      sheet.setFrozenRows(1);
-    }
-
-    // 寫入每個品項（合計只顯示在第一行）
-    data.items.forEach((item, index) => {
-      sheet.appendRow([
-        data.date,
-        data.time,
-        data.restaurant,
-        item.local,
-        item.zh,
-        item.price,
-        item.quantity,
-        item.subtotal,
-        index === 0 ? data.total : ''
-      ]);
-    });
-
+// 保留 doPost 以防萬一，邏輯與 doGet 相同
+function doPost(e) {
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('lastTime', new Date().toISOString());
+  try {
+    const raw = (e && e.parameter && e.parameter.payload)
+      || (e && e.postData && e.postData.contents)
+      || '';
+    if (!raw) throw new Error('payload empty');
+    const data = JSON.parse(raw);
+    const count = writeToSheet_(data);
+    props.setProperty('lastStatus', 'OK(POST), count=' + count);
     return ContentService
-      .createTextOutput(JSON.stringify({ success: true, count: data.items.length }))
+      .createTextOutput(JSON.stringify({ success: true, count: count }))
       .setMimeType(ContentService.MimeType.JSON);
-
   } catch (err) {
-    props.setProperty('lastStatus', 'ERROR: ' + err.message);
+    props.setProperty('lastStatus', 'ERROR(POST): ' + err.message);
     return ContentService
       .createTextOutput(JSON.stringify({ success: false, error: err.message }))
       .setMimeType(ContentService.MimeType.JSON);
   }
-}
-
-// 瀏覽器開 URL 時回傳版本 + 最後一次 POST 的 debug 資訊
-function doGet(e) {
-  const props = PropertiesService.getScriptProperties();
-  const debug = {
-    version: 'v4-debug',
-    lastPostTime: props.getProperty('lastPostTime') || '從未收到 POST',
-    lastStatus: props.getProperty('lastStatus') || 'none',
-    lastPayload: props.getProperty('lastPayload') || 'none',
-  };
-  return ContentService
-    .createTextOutput(JSON.stringify(debug, null, 2))
-    .setMimeType(ContentService.MimeType.JSON);
 }
