@@ -893,10 +893,9 @@ async function saveToSheets() {
       })),
       total
     });
-    await fetch(state.scriptUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      body: new URLSearchParams({ payload })
+    await fetch(state.scriptUrl + '?' + new URLSearchParams({ payload }), {
+      method: 'GET',
+      mode: 'no-cors'
     });
     showToast('已記帳到 Google 試算表 ✅');
   } catch (err) {
