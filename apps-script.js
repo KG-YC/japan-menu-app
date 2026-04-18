@@ -1,29 +1,20 @@
-/**
- * 旅遊點餐助手 - Google Apps Script
- *
- * 設定步驟：
- * 1. 開啟試算表：https://docs.google.com/spreadsheets/d/1UZdBLmVummTCPhKHusVQBnjdd_nPGcj6pZ9Z54KywMU
- * 2. 上方選單 → 擴充功能 → Apps Script
- * 3. 把這整個檔案的內容貼到編輯器（取代原有內容）
- * 4. 按「部署」→「新增部署作業」
- * 5. 類型選「網頁應用程式」
- * 6. 執行身分：「我」；存取權：「任何人」
- * 7. 按「部署」→ 複製「網頁應用程式網址」
- * 8. 把該網址貼到 index.html App 的設定中
- */
-
 const SHEET_ID = '1UZdBLmVummTCPhKHusVQBnjdd_nPGcj6pZ9Z54KywMU';
 const SHEET_NAME = '點餐紀錄';
 const HEADERS = ['日期', '時間', '餐廳', '日文菜名', '中文菜名', '單價(¥)', '數量', '小計(¥)', '本餐合計(¥)'];
 
 function doPost(e) {
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('lastPostTime', new Date().toISOString());
+
   try {
-    // 前端用 URLSearchParams 送，Apps Script 用 e.parameter 讀（不是 e.postData.contents）
-    const data = JSON.parse(e.parameter.payload);
+    const payload = e.parameter.payload;
+    props.setProperty('lastPostPayloadType', typeof payload + ' / ' + String(payload).substring(0, 100));
+
+    const data = JSON.parse(payload);
+    props.setProperty('lastPostFirstLocal', data.items && data.items[0] ? String(data.items[0].local) : '(empty)');
 
     const ss = SpreadsheetApp.openById(SHEET_ID);
     let sheet = ss.getSheetByName(SHEET_NAME);
-
     if (!sheet) {
       sheet = ss.insertSheet(SHEET_NAME);
       sheet.appendRow(HEADERS);
@@ -33,30 +24,42 @@ function doPost(e) {
 
     data.items.forEach((item, index) => {
       sheet.appendRow([
-        data.date,
-        data.time,
-        data.restaurant,
-        item.local,   // 原文菜名（日文/韓文/泰文等）
-        item.zh,
-        item.price,
-        item.quantity,
-        item.subtotal,
+        data.date, data.time, data.restaurant,
+        item.local, item.zh, item.price, item.quantity, item.subtotal,
         index === 0 ? data.total : ''
       ]);
     });
 
+    props.setProperty('lastPostStatus', 'SUCCESS count=' + data.items.length);
     return ContentService
-      .createTextOutput(JSON.stringify({ success: true, count: data.items.length }))
+      .createTextOutput(JSON.stringify({ success: true }))
       .setMimeType(ContentService.MimeType.JSON);
 
   } catch (err) {
+    props.setProperty('lastPostStatus', 'ERROR: ' + err.message);
     return ContentService
       .createTextOutput(JSON.stringify({ success: false, error: err.message }))
       .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
-// 瀏覽器開 URL 時確認版本
+// 每次被呼叫都記錄（無論有無 payload），用來偵測 POST→GET redirect
 function doGet(e) {
-  return ContentService.createTextOutput('旅遊點餐助手 v6 ✅').setMimeType(ContentService.MimeType.TEXT);
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('lastGetTime', new Date().toISOString());
+  props.setProperty('lastGetParams', JSON.stringify(e.parameter));
+
+  // 查看 debug 資訊
+  const debug = {
+    version: 'v7',
+    lastPostTime:  props.getProperty('lastPostTime')  || 'never',
+    lastPostStatus: props.getProperty('lastPostStatus') || 'none',
+    lastPostPayloadType: props.getProperty('lastPostPayloadType') || 'none',
+    lastPostFirstLocal:  props.getProperty('lastPostFirstLocal')  || 'none',
+    lastGetTime:   props.getProperty('lastGetTime'),
+    lastGetParams: props.getProperty('lastGetParams'),
+  };
+  return ContentService
+    .createTextOutput(JSON.stringify(debug, null, 2))
+    .setMimeType(ContentService.MimeType.JSON);
 }
